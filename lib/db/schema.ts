@@ -198,3 +198,119 @@ export const newsletterSubscription = pgTable("newsletter_subscription", {
   unsubscribedAt: timestamp("unsubscribed_at"),
   updatedAt: timestamp("updated_at").defaultNow().$onUpdate(() => new Date()).notNull(),
 });
+
+// ====================================
+// PulseFeedX - Twitter 监控系统
+// ====================================
+
+// Monitor rules - 监控规则表
+export const monitorRules = pgTable(
+  "monitor_rules",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+
+    // 规则配置
+    type: varchar("type", { length: 16 }).notNull(), // 'keyword' | 'account' | 'advanced'
+    value: text("value").notNull(), // 关键词、账号名或高级查询语法
+    name: text("name"), // 用户自定义规则名称
+    description: text("description"), // 规则描述
+
+    // 检查配置
+    isActive: boolean("is_active").default(true).notNull(),
+    checkInterval: integer("check_interval").default(300).notNull(), // 秒，默认5分钟
+    lastCheckedAt: timestamp("last_checked_at"), // 上次检查时间
+
+    // 积分配置
+    creditsPerCheck: integer("credits_per_check").default(1).notNull(),
+
+    // 高级过滤 (可选)
+    minFollowers: integer("min_followers"), // 最小粉丝数过滤
+    includeReplies: boolean("include_replies").default(false), // 是否包含回复
+
+    // 时间戳
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at")
+      .defaultNow()
+      .$onUpdate(() => new Date())
+      .notNull(),
+  },
+  (table) => ({
+    userIdIdx: index("monitor_rules_user_id_idx").on(table.userId),
+    activeIdx: index("monitor_rules_active_idx").on(table.isActive, table.lastCheckedAt),
+  })
+);
+
+// Monitor hits - 命中记录表
+export const monitorHits = pgTable(
+  "monitor_hits",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    ruleId: text("rule_id")
+      .notNull()
+      .references(() => monitorRules.id, { onDelete: "cascade" }),
+
+    // 推文信息
+    tweetId: text("tweet_id").notNull().unique(), // 防止重复记录
+    tweetText: text("tweet_text").notNull(),
+    tweetAuthor: text("tweet_author").notNull(),
+    tweetAuthorId: text("tweet_author_id"),
+    tweetUrl: text("tweet_url").notNull(),
+    tweetCreatedAt: timestamp("tweet_created_at"),
+
+    // 推文统计
+    likeCount: integer("like_count").default(0),
+    retweetCount: integer("retweet_count").default(0),
+    replyCount: integer("reply_count").default(0),
+
+    // 匹配信息
+    matchedKeyword: text("matched_keyword"), // 实际匹配的关键词
+    matchedAt: timestamp("matched_at").defaultNow().notNull(),
+
+    // 通知状态
+    notifiedAt: timestamp("notified_at"),
+    notificationStatus: varchar("notification_status", { length: 16 })
+      .default("pending")
+      .notNull(), // 'pending' | 'sent' | 'failed'
+    notificationError: text("notification_error"), // 失败原因
+  },
+  (table) => ({
+    userIdIdx: index("monitor_hits_user_id_idx").on(table.userId),
+    ruleIdIdx: index("monitor_hits_rule_id_idx").on(table.ruleId),
+    tweetIdIdx: index("monitor_hits_tweet_id_idx").on(table.tweetId),
+    matchedAtIdx: index("monitor_hits_matched_at_idx").on(table.matchedAt),
+  })
+);
+
+// Telegram bindings - Telegram 绑定表
+export const telegramBindings = pgTable("telegram_bindings", {
+  id: text("id").primaryKey(),
+  userId: text("user_id")
+    .notNull()
+    .unique()
+    .references(() => user.id, { onDelete: "cascade" }),
+
+  // Telegram 信息
+  chatId: text("chat_id").notNull().unique(),
+  username: text("username"), // Telegram 用户名 (可选)
+  firstName: text("first_name"),
+  lastName: text("last_name"),
+
+  // 绑定状态
+  isVerified: boolean("is_verified").default(false).notNull(),
+  verificationToken: text("verification_token"), // 6位验证码
+  tokenExpiresAt: timestamp("token_expires_at"),
+
+  // 通知偏好
+  muteUntil: timestamp("mute_until"), // 静音到某个时间
+  notificationEnabled: boolean("notification_enabled").default(true).notNull(),
+
+  // 时间戳
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  lastActiveAt: timestamp("last_active_at"),
+});

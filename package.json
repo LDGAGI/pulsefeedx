@@ -28,7 +28,10 @@
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
     "admin:setup": "tsx scripts/setup-admin.ts",
-    "generate:blog-manifest": "node scripts/generate-blog-manifest.mjs"
+    "generate:blog-manifest": "node scripts/generate-blog-manifest.mjs",
+    "telegram:setup": "tsx scripts/setup-telegram-webhook.ts --production",
+    "telegram:setup:dev": "tsx scripts/setup-telegram-webhook.ts",
+    "telegram:delete": "tsx scripts/setup-telegram-webhook.ts --delete"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.893.0",
